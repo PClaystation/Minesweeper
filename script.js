@@ -45,61 +45,74 @@ function loadBestTime() {
 
 
 function init() {
-    board.innerHTML = '';
-    cells = [];
-    firstClickDone = false;
-  
-    clearInterval(timerInterval);
-    time = 0;
-    timerEl.textContent = time;
-  
-    const diff = difficulties[difficultySelect.value];
-    boardSize = diff.size;
-    mineCount = diff.mines;
-    
-    mineCounterEl.textContent = mineCount;
-  
-    board.style.setProperty('--cols', boardSize);
-  
-    const totalCells = boardSize * boardSize;
+  board.innerHTML = '';
+  cells = [];
+  firstClickDone = false;
 
-    loadBestTime();
-  
-    for (let i = 0; i < totalCells; i++) {
-      const cell = document.createElement('div');
-      cell.classList.add('cell');
-      cell.dataset.index = i;
-      board.appendChild(cell);
-  
-      cells.push({
-        element: cell,
-        mine: false,
-        revealed: false,
-        flagged: false,
-        adjacent: 0
-      });
-  
-      cell.addEventListener('click', () => handleClick(i));
+  clearInterval(timerInterval);
+  time = 0;
+  timerEl.textContent = time;
 
-      cell.addEventListener('contextmenu', e => {
-        e.preventDefault();
+  const diff = difficulties[difficultySelect.value];
+  boardSize = diff.size;
+  mineCount = diff.mines;
+
+  mineCounterEl.textContent = mineCount;
+
+  board.style.setProperty('--cols', boardSize);
+
+  const totalCells = boardSize * boardSize;
+
+  loadBestTime();
+
+  for (let i = 0; i < totalCells; i++) {
+    const cell = document.createElement('div');
+    cell.classList.add('cell');
+    cell.dataset.index = i;
+    board.appendChild(cell);
+
+    cells.push({
+      element: cell,
+      mine: false,
+      revealed: false,
+      flagged: false,
+      adjacent: 0
+    });
+
+    // Desktop left click (normal tap)
+    cell.addEventListener('click', () => handleClick(i));
+
+    // Right click flag toggle
+    cell.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      toggleFlag(i);
+    });
+
+    // Touch handling for tap vs long press
+    let pressTimer = null;
+
+    cell.addEventListener("touchstart", (e) => {
+      // Start long press timer
+      pressTimer = setTimeout(() => {
         toggleFlag(i);
-      });
-      
-      // Long press support for iOS
-      let pressTimer;
-      cell.addEventListener("touchstart", (e) => {
-        pressTimer = setTimeout(() => {
-          toggleFlag(i);
-        }, 600);
-      });
-      cell.addEventListener("touchend", (e) => {
+        pressTimer = null; // Mark long press done
+      }, 600);
+    });
+
+    cell.addEventListener("touchend", (e) => {
+      if (pressTimer) {
+        // Short tap — clear long press timer and handle click
         clearTimeout(pressTimer);
-        e.preventDefault();
-      });
-      
-    }
+        handleClick(i);
+      }
+      pressTimer = null;
+
+      // Prevent simulated mouse events after touch
+      e.preventDefault();
+    });
   }
+}
+
   
 
 function placeMines(firstIndex) {
