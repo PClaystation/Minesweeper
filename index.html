@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minesweeper</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>Minesweeper</h1>
+
+    <div id="game-info">
+        <span>Time: <span id="timer">0</span>s</span>
+        <span>Mines left: <span id="mineCounter">0</span></span>
+        <div>Best Time: <span id="bestTime">--</span>s</div>
+
+      </div>
+      
+  
+    <div class="controls">
+      <label for="difficulty">Difficulty: </label>
+      <select id="difficulty">
+        <option value="easy">Easy</option>
+        <option value="medium" selected>Medium</option>
+        <option value="hard">Hard</option>
+      </select>
+      <button id="resetBtn">Reset</button>
+    </div>
+  
+    <div class="board-wrapper">
+        <div id="board"></div>
+    </div>
+
+    <div id="popup" class="hidden">
+        <div id="popup-content">
+          <h2 id="popup-message">Game Over!</h2>
+          <button id="popup-restart">Close</button>
+          <button id="popupResetBtn">Reset</button>
+        </div>
+    </div>
+      
+  
+    <script src="script.js"></script>
+  </body>
+  
+</html>
