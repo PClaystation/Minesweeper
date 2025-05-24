@@ -5,31 +5,62 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Minesweeper</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="../images/minesweeper-nbg-w.png" type="image/x-icon">
 </head>
 <body>
-    <h1>Minesweeper</h1>
 
-    <div id="game-info">
+  <div id="header">
+  <!--
+    <div id="leaderboardContainer">
+      <h3>Leaderboard</h3>
+      <div id="leaderboard">
+      </div>
+    </div>
+  -->
+
+
+    <div>
+      <h1>Minesweeper</h1>
+
+      <div id="game-info">
         <span>Time: <span id="timer">0</span>s</span>
         <span>Mines left: <span id="mineCounter">0</span></span>
         <div>Best Time: <span id="bestTime">--</span>s</div>
-
       </div>
+
+      <div class="controls">
+        <div class="mainControls">
+          <label for="difficulty">Difficulty: </label>
+          <select id="difficulty">
+            <option value="8x10">Easy</option>
+            <option value="16x40">Medium</option>
+            <option value="20x70">Hard</option>
+            <option value="custom">Custom</option>
+          </select>
       
-  
-    <div class="controls">
-      <label for="difficulty">Difficulty: </label>
-      <select id="difficulty">
-        <option value="easy">Easy</option>
-        <option value="medium" selected>Medium</option>
-        <option value="hard">Hard</option>
-      </select>
-      <button id="resetBtn">Reset</button>
+          <button id="resetBtn">Reset</button>
+          <!--
+
+          <label>
+            <input type="checkbox" id="hardModeCheckbox" />
+            Hard Mode (no flags)
+          </label>
+          -->
+        </div>
+      
+        <div id="customInputs">
+          <input type="number" id="customSize" placeholder="Board Size" />
+          <input type="number" id="customMines" placeholder="Mine Count" />
+          <button id="applyBtn">Apply</button>
+        </div>
+      </div>
     </div>
-  
-    <div class="board-wrapper">
-        <div id="board"></div>
-    </div>
+  </div>
+
+  <div class="board-wrapper">
+    <div id="board"></div>
+  </div>
+    
 
     <div id="popup" class="hidden">
         <div id="popup-content">
@@ -38,6 +69,15 @@
           <button id="popupResetBtn">Reset</button>
         </div>
     </div>
+
+    <div id="debug-menu" class="hidden">
+      <h3>Debug Menu</h3>
+      <button onclick="debugWin()">Trigger Win</button>
+      <button onclick="debugLose()">Trigger Loss</button>
+      <button onclick="resetGame()">Reset Game</button>
+      <button onclick="confettiEffect()">Test Confetti</button>
+    </div>
+    
       
   
     <script src="script.js"></script>

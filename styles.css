@@ -26,7 +26,7 @@ h1 {
   justify-content: center;
   align-items: center;
   padding: 2vw;
-  overflow-x: auto;
+  overflow: auto;
 }
 
 #board {
@@ -119,6 +119,14 @@ h1 {
 
 .controls {
   margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;           /* so items wrap on smaller screens */
+  justify-content: center;   /* center all children horizontally */
+  align-items: center;       /* align vertically in a row */
+  gap: 15px;                 /* space between items */
+  padding: 20px 0;
+  max-width: 600px;          /* optional max width so it doesn’t stretch too much */
+  margin: 0 auto;            /* center container itself if needed */
 }
 
 select, button {
@@ -168,7 +176,7 @@ select:hover, button:hover {
 #popup-content h2 {
   margin-bottom: 20px;
   font-size: 2rem;
-  color: #ff4f4f;
+  color: #b2b8ffaa;
 }
 
 #popup-content button {
@@ -199,4 +207,157 @@ select:hover, button:hover {
     transform: scale(1);
     opacity: 1;
   }
+}
+
+/* Popup bounce */
+.win-animate #popup-message {
+  animation: bounceIn 0.8s ease;
+}
+
+@keyframes bounceIn {
+  0%   { transform: scale(0.5); opacity: 0; }
+  60%  { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+/* Sparkle effect */
+.sparkle {
+  animation: sparkle 0.5s ease-out forwards;
+  background-color: gold !important;
+  box-shadow: 0 0 10px gold;
+}
+@keyframes sparkle {
+  0% { transform: scale(0.9); opacity: 0.5; }
+  100% { transform: scale(1.2); opacity: 1; }
+}
+
+/* Board pulse */
+.board-win-pulse {
+  animation: boardPulse 2s infinite alternate;
+}
+@keyframes boardPulse {
+  0%   { box-shadow: 0 0 0px rgba(255, 255, 0, 0.3); }
+  100% { box-shadow: 0 0 25px rgba(255, 255, 0, 0.6); }
+}
+
+/* Confetti */
+.confetto {
+  position: fixed;
+  top: -20px;
+  width: 10px;
+  height: 10px;
+  opacity: 0.9;
+  z-index: 9999;
+  border-radius: 50%;
+  animation: fall 5s ease-out forwards;
+}
+@keyframes fall {
+  to {
+    transform: translateY(100vh) rotateZ(360deg);
+    opacity: 0;
+  }
+}
+
+
+#debug-menu {
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  background: #222;
+  color: white;
+  padding: 10px;
+  border-radius: 8px;
+  z-index: 9999;
+  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+  font-family: monospace;
+}
+#debug-menu button {
+  display: block;
+  margin: 5px 0;
+  width: 100%;
+}
+.hidden {
+  display: none;
+}
+
+
+#difficulty {
+  padding: 10px 15px;
+  font-size: 16px;
+  border-radius: 6px;
+  border: 1.5px solid #888;
+  background-color: #333333;
+  cursor: pointer;
+  transition: border-color 0.3s ease;
+  outline: none;
+  width: 180px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+#difficulty:hover,
+#difficulty:focus {
+  border-color: #ffffff;
+  box-shadow: 0 0 8px rgba(0,123,255,0.5);
+  background-color: #666666;
+}
+
+#customInputs {
+  display: flex;
+  flex-direction: row;      /* side-by-side inputs */
+  justify-content: center;  /* center them horizontally */
+  gap: 15px;                /* space between inputs */
+  margin-top: 10px;
+  width: 100%;
+}
+
+@media (max-width: 500px) {
+  #customInputs {
+    flex-direction: column;
+    align-items: center; /* center inputs when stacked */
+  }
+}
+
+
+
+#customInputs input[type="number"] {
+  background-color: #333333;
+  flex: 1;
+  padding: 10px 12px;
+  font-size: 16px;
+  border-radius: 6px;
+  border: 1.5px solid #888;
+  outline: none;
+  transition: border-color 0.3s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  color: white;
+  
+}
+
+#customInputs input[type="number"]:focus {
+  border-color: #ffffff;
+  box-shadow: 0 0 8px rgba(0,123,255,0.5);
+  background-color: #5e5e5e;
+}
+
+#customInputs input::placeholder {
+  color: #ffffff;
+}
+
+#leaderboard {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background-color: rgba(0, 0, 0, 0.7); /* optional for visibility */
+  color: white;                         /* optional for contrast */
+  padding: 10px;
+  border-radius: 5px;
+  max-width: 200px;                     /* optional */
+  font-family: monospace;              /* style suggestion */
+}
+
+.mine img {
+  width: 20px;
+  height: 20px;
+  display: block;
+  margin: auto;
 }
