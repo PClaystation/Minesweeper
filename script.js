@@ -275,3 +275,8 @@ popupReset.addEventListener('click', () => {
   cell.addEventListener("touchend", (e) => {
     clearTimeout(pressTimer);
   });
+
+  board.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+  }, { passive: false });
+  
