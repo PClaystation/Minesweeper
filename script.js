@@ -80,10 +80,24 @@ function init() {
       });
   
       cell.addEventListener('click', () => handleClick(i));
+
       cell.addEventListener('contextmenu', e => {
         e.preventDefault();
         toggleFlag(i);
       });
+      
+      // Long press support for iOS
+      let pressTimer;
+      cell.addEventListener("touchstart", (e) => {
+        pressTimer = setTimeout(() => {
+          toggleFlag(i);
+        }, 600);
+      });
+      cell.addEventListener("touchend", (e) => {
+        clearTimeout(pressTimer);
+        e.preventDefault();
+      });
+      
     }
   }
   
