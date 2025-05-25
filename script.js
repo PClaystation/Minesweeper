@@ -286,37 +286,40 @@ function revealCell(index) {
 }
 
 function toggleFlag(index) {
-    const cell = cells[index];
-    //if (hardMode) return;
-    if (cell.revealed) return;
-  
-    cell.flagged = !cell.flagged;
-    cell.element.textContent = ''; // Clear any text or emoji
-    
-    // Remove old image if it exists
-    const oldFlagImg = cell.element.querySelector('img.flag-img');
-    if (oldFlagImg) oldFlagImg.remove();
-    
-    if (cell.flagged) {
-        const img = document.createElement('img');
-        img.src = 'images/flag-nbg.png';  // Path to your flag image
-        img.alt = 'flag';
-        img.classList.add('flag-img');
-        img.style.width = '20px';
-        img.style.height = '20px';
-        cell.element.appendChild(img);
+  const cell = cells[index];
+  if (cell.revealed) return;
+
+  cell.flagged = !cell.flagged;
+  cell.element.textContent = '';
+
+  // Remove old image if it exists
+  const oldFlagImg = cell.element.querySelector('img.flag-img');
+  if (oldFlagImg) oldFlagImg.remove();
+
+  if (cell.flagged) {
+    const img = document.createElement('img');
+    img.src = 'images/flag-nbg.png';
+    img.alt = 'flag';
+    img.classList.add('flag-img');
+    img.style.width = '20px';
+    img.style.height = '20px';
+    cell.element.appendChild(img);
+
+    // Vibrate on flag placement (only if supported)
+    if (navigator.vibrate) {
+      navigator.vibrate(100);
     }
-    
-    cell.element.classList.toggle('flagged', cell.flagged);
-    
-  
-    // update mine counter
-    const flaggedCount = cells.filter(c => c.flagged).length;
-    mineCounterEl.textContent = mineCount - flaggedCount;
-  
-    checkWin();
   }
-  
+
+  cell.element.classList.toggle('flagged', cell.flagged);
+
+  // update mine counter
+  const flaggedCount = cells.filter(c => c.flagged).length;
+  mineCounterEl.textContent = mineCount - flaggedCount;
+
+  checkWin();
+}
+
 
   function revealAll() {
     for (let i = 0; i < cells.length; i++) {

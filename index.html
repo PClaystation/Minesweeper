@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Minesweeper</title>
   <link rel="stylesheet" href="styles.css">
-  <link rel="icon" href="../images/minesweeper-nbg-w.png" type="image/x-icon">
+  <link rel="icon" href="images/minesweeper-nbg-w.png" type="image/x-icon">
 </head>
 <body>
 
@@ -17,6 +17,18 @@
       </div>
     </div>
   -->
+    <div class="logo-bar">
+
+      <div id="Brand-logo">
+        <img src="images/C2-dark.png" alt="Brand logo">
+      </div>
+
+      <div id="Website-logo">
+        <img src="images/minesweeper-nbg-w.png" alt="Website logo">
+      </div>
+
+    </div>
+    
 
 
     <div>
@@ -33,7 +45,7 @@
           <label for="difficulty">Difficulty: </label>
           <select id="difficulty">
             <option value="8x10">Easy</option>
-            <option value="16x40">Medium</option>
+            <option value="14x36">Medium</option>
             <option value="20x70">Hard</option>
             <option value="custom">Custom</option>
           </select>
@@ -77,6 +89,128 @@
       <button onclick="resetGame()">Reset Game</button>
       <button onclick="confettiEffect()">Test Confetti</button>
     </div>
+
+    <footer>
+      <div class="left-content">
+          <img src="images/C2-dark.png" alt="Logo">
+          <span>A Product of Continental Games</span>
+      </div>
+      <div class="center-content">
+          <p>
+              © 2025 PClaystation | 
+              <a href="https://github.com/PClaystation" target="_blank">GitHub</a> |
+              <!--<a href="" target="_blank" id="contact-button">Contact Us</a> -->
+              <script>
+                  document.getElementById('contact-button').addEventListener('click', function() {
+                      window.location.href = 'contact.html';  // Link to your contact page
+                  });
+              </script>
+          </p>
+      </div>
+      <div class="right-content">
+          <a href="https://patreon.com/ContinentalStudios?utm_medium=unknown&utm_source=join_link&utm_campaign=creatorshare_creator&utm_content=copyLink" target="_blank">
+              <img src="images/patreon.svg" alt="Logo">
+          </a>
+          <a href="https://gofund.me/5a43d215" target="_blank">
+              <img src="images/gofundme2.svg" alt="Logo">
+          </a>
+      </div>
+      </footer>
+      <style>
+/* Footer styling */
+footer {
+  background-color: #151515;
+  color: white;
+  padding: 10px;
+  position: relative;
+  bottom: 0;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  text-align: center;
+}
+
+.left-content {
+  display: flex;
+  align-items: center;
+  justify-content: start;
+}
+
+.left-content img {
+  height: 50px;
+  width: 50px;
+  margin-right: 10px;
+}
+
+.center-content {
+  text-align: center;
+}
+
+footer a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+footer a:hover {
+  text-decoration: underline;
+}
+
+footer .right-content {
+  display: flex;
+  justify-content: end;
+  align-items: center;
+}
+
+footer .right-content img {
+  max-width: 50px;
+  height: auto;
+  margin-right: 10px;
+}
+
+@media (max-width: 768px) {
+  footer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 15px;
+  }
+
+  .left-content,
+  .center-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+  }
+
+  .left-content img {
+    height: 40px;
+    width: 40px;
+    margin: 0 0 5px 0;
+  }
+
+  /* Make right-content flex row to keep images side by side */
+  .right-content {
+    display: flex;         /* flex row by default */
+    justify-content: center !important;
+    ;
+    align-items: center;
+    gap: 10px;             /* space between images */
+    width: 100%;
+
+  }
+
+  .right-content img {
+    margin: 0;
+    max-height: 40px;
+    height: auto;
+  }
+}
+
+      </style>
     
       
   

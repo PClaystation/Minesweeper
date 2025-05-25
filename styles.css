@@ -18,7 +18,7 @@ html, body {
 
 h1 {
   margin: 20px 0 10px;
-  font-size: 2rem;
+  font-size: 5rem;
 }
 
 .board-wrapper {
@@ -360,4 +360,32 @@ select:hover, button:hover {
   height: 20px;
   display: block;
   margin: auto;
+}
+/* Flex container for the logos */
+.logo-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+}
+
+/* Consistent logo styling */
+
+#Brand-logo img,
+#Website-logo img{
+  height: 60px; /* or whatever looks good */
+  width: auto;
+  max-width: 100%;
+}
+
+/* Responsive tweak */
+@media (max-width: 700px) {
+  .logo-bar {
+    padding: 5px 10px;
+  }
+
+  #Website-logo img,
+  #Brand-logo img {
+    height: 30px;
+  }
 }
