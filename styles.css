@@ -105,6 +105,15 @@ h1 {
   animation: flagPop 0.2s ease forwards;
 }
 
+.flag-img,
+.mine-img {
+  width: 70%;
+  height: 70%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+}
+
 .cell.mine {
   color: #ff4f4f;
 }
