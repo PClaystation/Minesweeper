@@ -62,16 +62,38 @@
     </div>
   </div>
 
-  <div class="board-wrapper">
-    <div id="board"></div>
+  <div class="game-shell">
+    <div class="board-wrapper">
+      <div id="board"></div>
+    </div>
+
+    <aside id="leaderboardContainer" class="leaderboard-panel" aria-labelledby="leaderboardTitle">
+      <div class="leaderboard-card">
+        <p class="leaderboard-kicker">Saved In This Browser</p>
+        <h2 id="leaderboardTitle">Leaderboard</h2>
+        <p id="leaderboardSubtitle" class="leaderboard-subtitle">Easy</p>
+        <ol id="leaderboard" class="leaderboard-list"></ol>
+        <p id="leaderboardEmpty" class="leaderboard-empty">Win a round to post the first time.</p>
+      </div>
+    </aside>
   </div>
     
 
     <div id="popup" class="hidden">
         <div id="popup-content">
           <h2 id="popup-message">Game Over!</h2>
-          <button id="popup-restart" type="button">Close</button>
-          <button id="popupResetBtn" type="button">New Game</button>
+          <p id="popup-subtext" class="popup-subtext hidden"></p>
+          <form id="scoreForm" class="score-form hidden">
+            <label class="score-form-label" for="playerNameInput">Save your time</label>
+            <div class="score-form-row">
+              <input id="playerNameInput" type="text" maxlength="20" placeholder="Name" autocomplete="nickname">
+              <button id="saveScoreBtn" type="submit">Save</button>
+            </div>
+          </form>
+          <div class="popup-actions">
+            <button id="popup-restart" type="button">Close</button>
+            <button id="popupResetBtn" type="button">New Game</button>
+          </div>
         </div>
     </div>
 

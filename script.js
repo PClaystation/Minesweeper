@@ -10,11 +10,16 @@ const mineCounterEl = document.getElementById('mineCounter');
 const bestTimeEl = document.getElementById('bestTime');
 const popup = document.getElementById('popup');
 const popupMessage = document.getElementById('popup-message');
+const popupSubtext = document.getElementById('popup-subtext');
 const popupCloseBtn = document.getElementById('popup-restart');
 const popupResetBtn = document.getElementById('popupResetBtn');
+const scoreForm = document.getElementById('scoreForm');
+const playerNameInput = document.getElementById('playerNameInput');
 const debugMenu = document.getElementById('debug-menu');
 const leaderboardEl = document.getElementById('leaderboard');
 const leaderboardContainer = document.getElementById('leaderboardContainer');
+const leaderboardSubtitleEl = document.getElementById('leaderboardSubtitle');
+const leaderboardEmptyEl = document.getElementById('leaderboardEmpty');
 
 const DIFFICULTY_CONFIG = {
   '8x10': { boardSize: 8, mineCount: 10 },
@@ -24,7 +29,8 @@ const DIFFICULTY_CONFIG = {
 
 const MAX_BOARD_SIZE = 24;
 const MIN_BOARD_SIZE = 2;
-const LEADERBOARD_ENDPOINT = 'http://mpmc.ddns.net:3000/scores';
+const MAX_LEADERBOARD_ENTRIES = 5;
+const MAX_PLAYER_NAME_LENGTH = 20;
 const LONG_PRESS_MS = 500;
 
 let boardSize = DIFFICULTY_CONFIG['8x10'].boardSize;
@@ -34,18 +40,19 @@ let timerInterval = null;
 let time = 0;
 let firstClickDone = false;
 let gameOver = false;
+let pendingLeaderboardEntry = null;
 
 resetBtn.addEventListener('click', init);
 popupResetBtn.addEventListener('click', init);
 popupCloseBtn.addEventListener('click', hidePopup);
 applyBtn.addEventListener('click', () => init(true));
 customSizeInput.addEventListener('input', updateCustomMineLimit);
+scoreForm.addEventListener('submit', handleScoreSubmit);
 
 difficultySelect.addEventListener('change', () => {
   updateCustomInputsVisibility();
   updateCustomMineLimit();
   init();
-  void displayLeaderboard();
 });
 
 document.addEventListener('keydown', (event) => {
@@ -57,7 +64,6 @@ document.addEventListener('keydown', (event) => {
 window.addEventListener('load', () => {
   updateCustomInputsVisibility();
   init();
-  void displayLeaderboard();
 });
 
 window.addEventListener('beforeunload', stopTimer);
@@ -128,6 +134,7 @@ function init(forceCustomValidation = false) {
   firstClickDone = false;
   gameOver = false;
   time = 0;
+  pendingLeaderboardEntry = null;
 
   stopTimer();
   hidePopup();
@@ -138,6 +145,7 @@ function init(forceCustomValidation = false) {
   board.innerHTML = '';
 
   loadBestTime();
+  displayLeaderboard();
 
   const totalCells = boardSize * boardSize;
   for (let index = 0; index < totalCells; index += 1) {
@@ -431,6 +439,7 @@ function checkWin() {
 
   mineCounterEl.textContent = '0';
   updateBestTime();
+  pendingLeaderboardEntry = getLeaderboardQualification(time);
   endGame('You Win!');
 }
 
@@ -459,12 +468,17 @@ function endGame(message) {
 function showPopup(message) {
   popupMessage.textContent = message;
   popup.classList.remove('hidden');
+  popupSubtext.textContent = '';
+  popupSubtext.classList.add('hidden');
+  scoreForm.classList.add('hidden');
 
   if (message.toLowerCase().includes('win')) {
     startConfetti();
     board.classList.add('board-win-pulse');
+    configureWinPopup();
   } else {
     board.classList.remove('board-win-pulse');
+    pendingLeaderboardEntry = null;
   }
 }
 
@@ -472,6 +486,10 @@ function hidePopup() {
   popup.classList.add('hidden');
   board.classList.remove('board-win-pulse');
   popupMessage.textContent = '';
+  popupSubtext.textContent = '';
+  popupSubtext.classList.add('hidden');
+  scoreForm.classList.add('hidden');
+  scoreForm.reset();
 }
 
 function updateBestTime() {
@@ -489,77 +507,162 @@ function updateBestTime() {
 }
 
 function loadBestTime() {
-  const currentBest = readLocalStorage(getBestTimeKey());
-  bestTimeEl.textContent = currentBest || '--';
+  const storedBest = readLocalStorage(getBestTimeKey());
+  const parsedStoredBest = storedBest ? Number.parseInt(storedBest, 10) : null;
+  const leaderboardBest = getLeaderboardEntries()[0]?.time ?? null;
+  const bestCandidates = [parsedStoredBest, leaderboardBest].filter((candidate) => Number.isFinite(candidate));
+  bestTimeEl.textContent = bestCandidates.length > 0 ? String(Math.min(...bestCandidates)) : '--';
 }
 
 function getBestTimeKey() {
   return `minesweeperBestTime_${difficultySelect.value}_${boardSize}x${mineCount}`;
 }
 
-async function submitScoreOnline(name, difficulty, scoreTime) {
-  if (window.location.protocol === 'https:' && LEADERBOARD_ENDPOINT.startsWith('http://')) {
-    console.warn('Skipping score submission because the configured leaderboard endpoint is not HTTPS.');
-    return;
+function getLeaderboardKey() {
+  return `minesweeperLeaderboard_${difficultySelect.value}_${boardSize}x${mineCount}`;
+}
+
+function getDifficultyLabel() {
+  const selectedOption = difficultySelect.selectedOptions[0];
+  const difficultyName = selectedOption ? selectedOption.textContent.trim() : 'Custom';
+  return `${difficultyName} · ${boardSize}x${boardSize} board · ${mineCount} mines`;
+}
+
+function getLeaderboardEntries() {
+  const rawValue = readLocalStorage(getLeaderboardKey());
+  if (!rawValue) {
+    return [];
   }
 
   try {
-    writeLocalStorage('lastPlayerName', name);
-    writeLocalStorage('lastTime', String(scoreTime));
-
-    const response = await fetch(LEADERBOARD_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, difficulty, time: scoreTime }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Score submission failed with status ${response.status}`);
+    const parsed = JSON.parse(rawValue);
+    if (!Array.isArray(parsed)) {
+      return [];
     }
+
+    return parsed
+      .filter((entry) => entry && typeof entry.name === 'string' && Number.isFinite(entry.time))
+      .map((entry) => ({
+        name: sanitizePlayerName(entry.name) || 'Anonymous',
+        time: Math.max(0, Math.floor(entry.time)),
+        recordedAt: typeof entry.recordedAt === 'string' ? entry.recordedAt : '',
+      }))
+      .sort((left, right) => left.time - right.time || left.recordedAt.localeCompare(right.recordedAt))
+      .slice(0, MAX_LEADERBOARD_ENTRIES);
   } catch (error) {
-    console.warn('Unable to submit score online.', error);
+    console.warn('Unable to parse leaderboard entries.', error);
+    return [];
   }
 }
 
-async function displayLeaderboard() {
-  if (!leaderboardEl || !leaderboardContainer) {
+function saveLeaderboardEntry(name, scoreTime) {
+  const leaderboard = getLeaderboardEntries();
+  const nextLeaderboard = [...leaderboard, {
+    name,
+    time: Math.max(0, Math.floor(scoreTime)),
+    recordedAt: new Date().toISOString(),
+  }]
+    .sort((left, right) => left.time - right.time || left.recordedAt.localeCompare(right.recordedAt))
+    .slice(0, MAX_LEADERBOARD_ENTRIES);
+
+  writeLocalStorage(getLeaderboardKey(), JSON.stringify(nextLeaderboard));
+  writeLocalStorage('lastPlayerName', name);
+}
+
+function getLeaderboardQualification(scoreTime) {
+  const leaderboard = getLeaderboardEntries();
+  const qualifies =
+    leaderboard.length < MAX_LEADERBOARD_ENTRIES
+    || scoreTime <= leaderboard[leaderboard.length - 1].time;
+
+  if (!qualifies) {
+    return null;
+  }
+
+  const projectedLeaderboard = [...leaderboard, {
+    name: '',
+    time: scoreTime,
+    recordedAt: '',
+  }]
+    .sort((left, right) => left.time - right.time || left.recordedAt.localeCompare(right.recordedAt))
+    .slice(0, MAX_LEADERBOARD_ENTRIES);
+
+  const rank = projectedLeaderboard.findIndex((entry) => entry.time === scoreTime) + 1;
+  return {
+    rank,
+    scoreTime,
+  };
+}
+
+function configureWinPopup() {
+  popupSubtext.classList.remove('hidden');
+
+  if (!pendingLeaderboardEntry) {
+    popupSubtext.textContent = `Finished in ${time}s on ${getDifficultyLabel()}.`;
     return;
   }
 
-  if (window.location.protocol === 'https:' && LEADERBOARD_ENDPOINT.startsWith('http://')) {
-    leaderboardEl.textContent = 'Leaderboard unavailable on HTTPS.';
+  popupSubtext.textContent = `Finished in ${pendingLeaderboardEntry.scoreTime}s. This is rank #${pendingLeaderboardEntry.rank} on the local leaderboard.`;
+  scoreForm.classList.remove('hidden');
+  playerNameInput.value = sanitizePlayerName(readLocalStorage('lastPlayerName') || '');
+  window.requestAnimationFrame(() => {
+    playerNameInput.focus();
+    playerNameInput.select();
+  });
+}
+
+function handleScoreSubmit(event) {
+  event.preventDefault();
+
+  if (!pendingLeaderboardEntry) {
     return;
   }
 
-  const difficulty = difficultySelect.value;
-  leaderboardEl.textContent = 'Loading...';
+  const playerName = sanitizePlayerName(playerNameInput.value) || 'Anonymous';
+  saveLeaderboardEntry(playerName, pendingLeaderboardEntry.scoreTime);
+  const savedTime = pendingLeaderboardEntry.scoreTime;
+  pendingLeaderboardEntry = null;
+  displayLeaderboard();
+  loadBestTime();
+  popupSubtext.textContent = `Saved ${playerName} with ${savedTime}s.`;
+  popupSubtext.classList.remove('hidden');
+  scoreForm.classList.add('hidden');
+}
 
-  try {
-    const response = await fetch(`${LEADERBOARD_ENDPOINT}?difficulty=${encodeURIComponent(difficulty)}`);
-    if (!response.ok) {
-      throw new Error(`Leaderboard request failed with status ${response.status}`);
-    }
+function sanitizePlayerName(name = '') {
+  return name.replace(/\s+/g, ' ').trim().slice(0, MAX_PLAYER_NAME_LENGTH);
+}
 
-    const leaderboard = await response.json();
-    if (!Array.isArray(leaderboard) || leaderboard.length === 0) {
-      leaderboardEl.textContent = 'No scores yet!';
-      return;
-    }
-
-    leaderboardEl.innerHTML = '';
-    leaderboard
-      .slice()
-      .sort((left, right) => left.time - right.time)
-      .slice(0, 5)
-      .forEach((entry, index) => {
-        const row = document.createElement('div');
-        row.textContent = `${index + 1}. ${entry.name} - ${entry.time}s`;
-        leaderboardEl.appendChild(row);
-      });
-  } catch (error) {
-    leaderboardEl.textContent = 'Leaderboard unavailable.';
-    console.warn('Unable to load leaderboard.', error);
+function displayLeaderboard() {
+  if (!leaderboardEl || !leaderboardContainer || !leaderboardSubtitleEl || !leaderboardEmptyEl) {
+    return;
   }
+
+  leaderboardSubtitleEl.textContent = getDifficultyLabel();
+  leaderboardEl.innerHTML = '';
+
+  const leaderboard = getLeaderboardEntries();
+  leaderboardEmptyEl.classList.toggle('hidden', leaderboard.length > 0);
+
+  leaderboard.forEach((entry, index) => {
+    const listItem = document.createElement('li');
+    listItem.className = 'leaderboard-entry';
+
+    const rank = document.createElement('span');
+    rank.className = 'leaderboard-rank';
+    rank.textContent = `#${index + 1}`;
+
+    const name = document.createElement('span');
+    name.className = 'leaderboard-name';
+    name.textContent = entry.name;
+
+    const score = document.createElement('span');
+    score.className = 'leaderboard-time';
+    score.textContent = `${entry.time}s`;
+
+    listItem.append(rank, name, score);
+    leaderboardEl.appendChild(listItem);
+  });
 }
 
 function startConfetti() {
@@ -717,5 +820,3 @@ window.advanceTime = (ms) => {
   time += seconds;
   timerEl.textContent = String(time);
 };
-
-void submitScoreOnline;
