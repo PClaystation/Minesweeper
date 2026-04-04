@@ -10,13 +10,6 @@
 <body>
 
   <div id="header">
-  <!--
-    <div id="leaderboardContainer">
-      <h3>Leaderboard</h3>
-      <div id="leaderboard">
-      </div>
-    </div>
-  -->
     <div class="logo-bar">
 
       <div id="Brand-logo">
@@ -34,7 +27,7 @@
     <div>
       <h1>Minesweeper</h1>
 
-      <div id="game-info">
+      <div id="game-info" aria-live="polite">
         <span>Time: <span id="timer">0</span>s</span>
         <span>Mines left: <span id="mineCounter">0</span></span>
         <div>Best Time: <span id="bestTime">--</span>s</div>
@@ -60,10 +53,10 @@
           -->
         </div>
       
-        <div id="customInputs">
-          <input type="number" id="customSize" placeholder="Board Size" />
-          <input type="number" id="customMines" placeholder="Mine Count" />
-          <button id="applyBtn">Apply</button>
+        <div id="customInputs" hidden>
+          <input type="number" id="customSize" placeholder="Board Size" min="2" max="24" inputmode="numeric" />
+          <input type="number" id="customMines" placeholder="Mine Count" min="1" inputmode="numeric" />
+          <button id="applyBtn" type="button">Apply</button>
         </div>
       </div>
     </div>
@@ -77,17 +70,17 @@
     <div id="popup" class="hidden">
         <div id="popup-content">
           <h2 id="popup-message">Game Over!</h2>
-          <button id="popup-restart">Close</button>
-          <button id="popupResetBtn">Reset</button>
+          <button id="popup-restart" type="button">Close</button>
+          <button id="popupResetBtn" type="button">New Game</button>
         </div>
     </div>
 
     <div id="debug-menu" class="hidden">
       <h3>Debug Menu</h3>
-      <button onclick="debugWin()">Trigger Win</button>
-      <button onclick="debugLose()">Trigger Loss</button>
-      <button onclick="resetGame()">Reset Game</button>
-      <button onclick="confettiEffect()">Test Confetti</button>
+      <button type="button" onclick="debugWin()">Trigger Win</button>
+      <button type="button" onclick="debugLose()">Trigger Loss</button>
+      <button type="button" onclick="resetGame()">Reset Game</button>
+      <button type="button" onclick="confettiEffect()">Test Confetti</button>
     </div>
 
     <footer>
@@ -97,123 +90,20 @@
       </div>
       <div class="center-content">
           <p>
-              © 2025 PClaystation | 
-              <a href="https://github.com/PClaystation" target="_blank">GitHub</a> |
-              <!--<a href="" target="_blank" id="contact-button">Contact Us</a> -->
-              <script>
-                  document.getElementById('contact-button').addEventListener('click', function() {
-                      window.location.href = 'contact.html';  // Link to your contact page
-                  });
-              </script>
+              © 2025 PClaystation |
+              <a href="https://github.com/PClaystation" target="_blank" rel="noreferrer">GitHub</a>
           </p>
       </div>
       <div class="right-content">
-          <a href="https://patreon.com/ContinentalStudios?utm_medium=unknown&utm_source=join_link&utm_campaign=creatorshare_creator&utm_content=copyLink" target="_blank">
+          <a href="https://patreon.com/ContinentalStudios?utm_medium=unknown&utm_source=join_link&utm_campaign=creatorshare_creator&utm_content=copyLink" target="_blank" rel="noreferrer">
               <img src="images/patreon.svg" alt="Logo">
           </a>
-          <a href="https://gofund.me/5a43d215" target="_blank">
+          <a href="https://gofund.me/5a43d215" target="_blank" rel="noreferrer">
               <img src="images/gofundme2.svg" alt="Logo">
           </a>
       </div>
       </footer>
-      <style>
-/* Footer styling */
-footer {
-  background-color: #151515;
-  color: white;
-  padding: 10px;
-  position: relative;
-  bottom: 0;
-  width: 100%;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  text-align: center;
-}
 
-.left-content {
-  display: flex;
-  align-items: center;
-  justify-content: start;
-}
-
-.left-content img {
-  height: 50px;
-  width: 50px;
-  margin-right: 10px;
-}
-
-.center-content {
-  text-align: center;
-}
-
-footer a {
-  color: #007bff;
-  text-decoration: none;
-}
-
-footer a:hover {
-  text-decoration: underline;
-}
-
-footer .right-content {
-  display: flex;
-  justify-content: end;
-  align-items: center;
-}
-
-footer .right-content img {
-  max-width: 50px;
-  height: auto;
-  margin-right: 10px;
-}
-
-@media (max-width: 768px) {
-  footer {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    gap: 15px;
-  }
-
-  .left-content,
-  .center-content {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    width: 100%;
-  }
-
-  .left-content img {
-    height: 40px;
-    width: 40px;
-    margin: 0 0 5px 0;
-  }
-
-  /* Make right-content flex row to keep images side by side */
-  .right-content {
-    display: flex;         /* flex row by default */
-    justify-content: center !important;
-    ;
-    align-items: center;
-    gap: 10px;             /* space between images */
-    width: 100%;
-
-  }
-
-  .right-content img {
-    margin: 0;
-    max-height: 40px;
-    height: auto;
-  }
-}
-
-      </style>
-    
-      
-  
     <script src="script.js"></script>
   </body>
   

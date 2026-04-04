@@ -16,6 +16,12 @@ html, body {
   overscroll-behavior: none; /* Prevents scroll bounce on mobile */
 }
 
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
 h1 {
   margin: 20px 0 10px;
   font-size: 5rem;
@@ -27,6 +33,7 @@ h1 {
   align-items: center;
   padding: 2vw;
   overflow: auto;
+  flex: 1;
 }
 
 #board {
@@ -59,9 +66,10 @@ h1 {
   color: #f0f0f0;
 
   transition: background-color 0.15s ease, transform 0.15s ease;
+  padding: 0;
 }
 
-.cell:hover {
+.cell:hover:not(:disabled) {
   background-color: #464a6e;
   box-shadow: 0 0 8px 2px #7884ff88;
 }
@@ -70,6 +78,10 @@ h1 {
   background-color: #3e4160;
   cursor: default;
   animation: revealAnim 0.2s ease forwards;
+}
+
+.cell:disabled {
+  cursor: default;
 }
 
 .cell.revealed:not(.mine):not(.flagged) {
@@ -156,7 +168,7 @@ select:hover, button:hover {
   position: fixed;
   top: 0; left: 0;
   width: 100vw; height: 100vh;
-  background: rgba(30, 30, 47, 0.85);
+  background: rgba(13, 16, 33, 0.72);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -165,18 +177,20 @@ select:hover, button:hover {
 }
 
 #popup-content {
-  background: #2c2f4a;
+  background: linear-gradient(180deg, #38406b 0%, #262b4b 100%);
   padding: 30px 40px;
   border-radius: 10px;
   text-align: center;
-  box-shadow: 0 0 20px #7884ffaa;
+  border: 1px solid #96a3ff;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
   animation: popupScale 0.3s ease forwards;
+  min-width: min(90vw, 320px);
 }
 
 #popup-content h2 {
   margin-bottom: 20px;
   font-size: 2rem;
-  color: #b2b8ffaa;
+  color: #f6f7ff;
 }
 
 #popup-content button {
@@ -276,10 +290,6 @@ select:hover, button:hover {
   margin: 5px 0;
   width: 100%;
 }
-.hidden {
-  display: none;
-}
-
 
 #difficulty {
   padding: 10px 15px;
@@ -308,6 +318,10 @@ select:hover, button:hover {
   gap: 15px;                /* space between inputs */
   margin-top: 10px;
   width: 100%;
+}
+
+#customInputs[hidden] {
+  display: none;
 }
 
 @media (max-width: 500px) {
@@ -361,6 +375,55 @@ select:hover, button:hover {
   display: block;
   margin: auto;
 }
+
+footer {
+  background-color: #151515;
+  color: white;
+  padding: 10px;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+}
+
+.left-content {
+  display: flex;
+  align-items: center;
+  justify-content: start;
+}
+
+.left-content img {
+  height: 50px;
+  width: 50px;
+  margin-right: 10px;
+}
+
+.center-content {
+  text-align: center;
+}
+
+footer a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+footer a:hover {
+  text-decoration: underline;
+}
+
+footer .right-content {
+  display: flex;
+  justify-content: end;
+  align-items: center;
+}
+
+footer .right-content img {
+  max-width: 50px;
+  height: auto;
+  margin-right: 10px;
+}
 /* Flex container for the logos */
 .logo-bar {
   display: flex;
@@ -387,5 +450,44 @@ select:hover, button:hover {
   #Website-logo img,
   #Brand-logo img {
     height: 30px;
+  }
+}
+
+@media (max-width: 768px) {
+  footer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 15px;
+  }
+
+  .left-content,
+  .center-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+  }
+
+  .left-content img {
+    height: 40px;
+    width: 40px;
+    margin: 0 0 5px 0;
+  }
+
+  .right-content {
+    display: flex;
+    justify-content: center !important;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .right-content img {
+    margin: 0;
+    max-height: 40px;
+    height: auto;
   }
 }

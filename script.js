@@ -1,224 +1,286 @@
 const board = document.getElementById('board');
 const resetBtn = document.getElementById('resetBtn');
 const difficultySelect = document.getElementById('difficulty');
-const popupResetBtn = document.getElementById('popupResetBtn');
+const customInputs = document.getElementById('customInputs');
+const customSizeInput = document.getElementById('customSize');
+const customMinesInput = document.getElementById('customMines');
 const applyBtn = document.getElementById('applyBtn');
-
-
-
-let boardSize, mineCount, cells = [], firstClickDone = false;
-
-
-
-resetBtn.addEventListener('click', init);
-popupResetBtn.addEventListener('click', init);
-applyBtn.addEventListener('click', init);
-difficultySelect.addEventListener('change', init);
-let timerInterval = null;
-let time = 0;
-window.addEventListener('load', displayLeaderboard);
-
-difficultySelect.addEventListener('change', displayLeaderboard);
-
-
 const timerEl = document.getElementById('timer');
 const mineCounterEl = document.getElementById('mineCounter');
 const bestTimeEl = document.getElementById('bestTime');
+const popup = document.getElementById('popup');
+const popupMessage = document.getElementById('popup-message');
+const popupCloseBtn = document.getElementById('popup-restart');
+const popupResetBtn = document.getElementById('popupResetBtn');
+const debugMenu = document.getElementById('debug-menu');
+const leaderboardEl = document.getElementById('leaderboard');
+const leaderboardContainer = document.getElementById('leaderboardContainer');
 
-function updateBestTime() {
-  const bestKey = `minesweeperBestTime_${difficultySelect.value}`;
-  
+const DIFFICULTY_CONFIG = {
+  '8x10': { boardSize: 8, mineCount: 10 },
+  '14x36': { boardSize: 14, mineCount: 36 },
+  '20x70': { boardSize: 20, mineCount: 70 },
+};
 
-  const currentBest = localStorage.getItem(bestKey);
+const MAX_BOARD_SIZE = 24;
+const MIN_BOARD_SIZE = 2;
+const LEADERBOARD_ENDPOINT = 'http://mpmc.ddns.net:3000/scores';
+const LONG_PRESS_MS = 500;
 
-  if (!currentBest || time < currentBest) {
-    localStorage.setItem(bestKey, time);
-    bestTimeEl.textContent = time;
-  } else {
-    bestTimeEl.textContent = currentBest;
-  }
-}
+let boardSize = DIFFICULTY_CONFIG['8x10'].boardSize;
+let mineCount = DIFFICULTY_CONFIG['8x10'].mineCount;
+let cells = [];
+let timerInterval = null;
+let time = 0;
+let firstClickDone = false;
+let gameOver = false;
 
-function loadBestTime() {
-  const difficulty = difficultySelect.value;
-  const bestKey = `minesweeperBestTime_${difficulty}`;
-  const currentBest = localStorage.getItem(bestKey);
-  bestTimeEl.textContent = currentBest || '--';
-}
+resetBtn.addEventListener('click', init);
+popupResetBtn.addEventListener('click', init);
+popupCloseBtn.addEventListener('click', hidePopup);
+applyBtn.addEventListener('click', () => init(true));
+customSizeInput.addEventListener('input', updateCustomMineLimit);
 
-async function submitScoreOnline(name, difficulty, time) {
-  try {
-    localStorage.setItem('lastPlayerName', name);
-    localStorage.setItem('lastTime', time);
-
-    const response = await fetch('http://mpmc.ddns.net:3000/scores', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, difficulty, time }),
-    });
-
-    if (!response.ok) {
-      console.warn('Failed to submit score online');
-    }
-  } catch (error) {
-    console.error('Error submitting score:', error);
-  }
-}
-
-
-/*
-const hardModeCheckbox = document.getElementById('hardModeCheckbox');
-let hardMode = false;
-
-hardModeCheckbox.addEventListener('change', () => {
-  hardMode = hardModeCheckbox.checked;
+difficultySelect.addEventListener('change', () => {
+  updateCustomInputsVisibility();
+  updateCustomMineLimit();
+  init();
+  void displayLeaderboard();
 });
-*/
 
-function getMaxBoardSize() {
-  return 24;  // Always return 40 as max size
+document.addEventListener('keydown', (event) => {
+  if (event.key.toLowerCase() === 'd') {
+    debugMenu.classList.toggle('hidden');
+  }
+});
+
+window.addEventListener('load', () => {
+  updateCustomInputsVisibility();
+  init();
+  void displayLeaderboard();
+});
+
+window.addEventListener('beforeunload', stopTimer);
+
+function getDifficultySettings() {
+  if (difficultySelect.value !== 'custom') {
+    return DIFFICULTY_CONFIG[difficultySelect.value];
+  }
+
+  const rawBoardSize = Number.parseInt(customSizeInput.value, 10);
+  const rawMineCount = Number.parseInt(customMinesInput.value, 10);
+
+  const safeBoardSize = clamp(
+    Number.isNaN(rawBoardSize) ? DIFFICULTY_CONFIG['8x10'].boardSize : rawBoardSize,
+    MIN_BOARD_SIZE,
+    MAX_BOARD_SIZE
+  );
+  const maxMineCount = Math.max(1, safeBoardSize * safeBoardSize - 1);
+  const safeMineCount = clamp(
+    Number.isNaN(rawMineCount) ? Math.min(10, maxMineCount) : rawMineCount,
+    1,
+    maxMineCount
+  );
+
+  customSizeInput.value = String(safeBoardSize);
+  customMinesInput.value = String(safeMineCount);
+
+  return {
+    boardSize: safeBoardSize,
+    mineCount: safeMineCount,
+  };
 }
 
+function updateCustomInputsVisibility() {
+  const isCustom = difficultySelect.value === 'custom';
+  customInputs.hidden = !isCustom;
+}
 
+function updateCustomMineLimit() {
+  const parsedSize = Number.parseInt(customSizeInput.value, 10);
+  const safeBoardSize = clamp(
+    Number.isNaN(parsedSize) ? DIFFICULTY_CONFIG['8x10'].boardSize : parsedSize,
+    MIN_BOARD_SIZE,
+    MAX_BOARD_SIZE
+  );
+  const maxMineCount = Math.max(1, safeBoardSize * safeBoardSize - 1);
+  customMinesInput.max = String(maxMineCount);
 
+  const parsedMineCount = Number.parseInt(customMinesInput.value, 10);
+  if (!Number.isNaN(parsedMineCount) && parsedMineCount > maxMineCount) {
+    customMinesInput.value = String(maxMineCount);
+  }
+}
 
+function init(forceCustomValidation = false) {
+  const settings = getDifficultySettings();
+  updateCustomMineLimit();
 
+  if (difficultySelect.value === 'custom' && forceCustomValidation) {
+    const maxMineCount = settings.boardSize * settings.boardSize - 1;
+    customSizeInput.max = String(MAX_BOARD_SIZE);
+    customMinesInput.max = String(maxMineCount);
+  }
 
-function init() {
-  board.innerHTML = '';
+  boardSize = settings.boardSize;
+  mineCount = settings.mineCount;
   cells = [];
   firstClickDone = false;
-
-  clearInterval(timerInterval);
+  gameOver = false;
   time = 0;
-  timerEl.textContent = time;
 
-  if (difficultySelect.value === 'custom') {
-    const sizeInput = document.getElementById('customSize').value;
-    const mineInput = document.getElementById('customMines').value;
-    boardSize = parseInt(sizeInput, 10);
-    mineCount = parseInt(mineInput, 10);
-    customInputs.style.display = 'flex'; // or 'block', flex works well if you used flex styling
+  stopTimer();
+  hidePopup();
 
-  if (difficultySelect.value === 'custom') {
-      const maxSize = getMaxBoardSize();
-      if (boardSize > 24) {
-        alert('Board size too large, max allowed is 24. Adjusting automatically.');
-        boardSize = 24;
-        document.getElementById('customSize').value = 24;
-      } else if (boardSize < 2) {
-        alert('Board size too small, min allowed is 2. Adjusting automatically.');
-        boardSize = 2;
-        document.getElementById('customSize').value = 2;
-      }
-    }
-    
-  } else {
-    const [customSize, customMines] = difficultySelect.value.split('x').map(Number);
-    boardSize = customSize;
-    mineCount = customMines;
-    customInputs.style.display = 'none';
+  timerEl.textContent = '0';
+  mineCounterEl.textContent = String(mineCount);
+  board.style.setProperty('--cols', String(boardSize));
+  board.innerHTML = '';
 
-  }
-  /*
-  // Validate input
-  if (isNaN(boardSize) || isNaN(mineCount) || boardSize <= 0 || mineCount <= 0 || mineCount >= boardSize * boardSize) {
-    alert("Invalid board size or mine count.");
-    return;
-  }
-  */
-  mineCounterEl.textContent = mineCount;
-  board.style.setProperty('--cols', boardSize);
-
-  const totalCells = boardSize * boardSize;
   loadBestTime();
 
-  for (let i = 0; i < totalCells; i++) {
-    const cell = document.createElement('div');
-    cell.classList.add('cell');
-    cell.dataset.index = i;
-    board.appendChild(cell);
+  const totalCells = boardSize * boardSize;
+  for (let index = 0; index < totalCells; index += 1) {
+    const cellButton = document.createElement('button');
+    cellButton.type = 'button';
+    cellButton.className = 'cell';
+    cellButton.dataset.index = String(index);
+    cellButton.setAttribute('aria-label', `Hidden cell ${index + 1}`);
+    board.appendChild(cellButton);
 
-    cells.push({
-      element: cell,
+    const cellState = {
+      element: cellButton,
       mine: false,
       revealed: false,
       flagged: false,
-      adjacent: 0
+      adjacent: 0,
+      pressTimer: null,
+      longPressTriggered: false,
+    };
+
+    cellButton.addEventListener('click', () => handleReveal(index));
+    cellButton.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+      toggleFlag(index);
     });
 
-    cell.addEventListener('click', () => handleClick(i));
-    cell.addEventListener('contextmenu', e => {
-      e.preventDefault();
-      toggleFlag(i);
-    });
-
-    let pressTimer = null;
-    cell.addEventListener("touchstart", (e) => {
-      pressTimer = setTimeout(() => {
-        toggleFlag(i);
-        pressTimer = null;
-      }, 600);
-    });
-
-    cell.addEventListener("touchend", (e) => {
-      if (pressTimer) {
-        clearTimeout(pressTimer);
-        handleClick(i);
+    cellButton.addEventListener('touchstart', () => {
+      if (gameOver || cellState.revealed) {
+        return;
       }
-      pressTimer = null;
-      e.preventDefault();
+
+      cellState.longPressTriggered = false;
+      cellState.pressTimer = window.setTimeout(() => {
+        cellState.longPressTriggered = true;
+        toggleFlag(index);
+      }, LONG_PRESS_MS);
+    }, { passive: true });
+
+    cellButton.addEventListener('touchend', (event) => {
+      if (cellState.pressTimer) {
+        window.clearTimeout(cellState.pressTimer);
+        cellState.pressTimer = null;
+      }
+
+      if (cellState.longPressTriggered) {
+        event.preventDefault();
+      }
+
+      cellState.longPressTriggered = false;
     });
+
+    cellButton.addEventListener('touchcancel', () => {
+      if (cellState.pressTimer) {
+        window.clearTimeout(cellState.pressTimer);
+        cellState.pressTimer = null;
+      }
+      cellState.longPressTriggered = false;
+    });
+
+    cells.push(cellState);
   }
+
+  updateCellAria();
 }
 
+function handleReveal(index) {
+  if (gameOver) {
+    return;
+  }
 
-  
+  const cell = cells[index];
+  if (!cell || cell.revealed || cell.flagged) {
+    return;
+  }
+
+  if (!firstClickDone) {
+    placeMines(index);
+    firstClickDone = true;
+    startTimer();
+  }
+
+  if (cell.mine) {
+    revealMine(cell, true);
+    revealAll();
+    endGame('Game Over!');
+    return;
+  }
+
+  revealSafeArea(index);
+  checkWin();
+}
 
 function placeMines(firstIndex) {
-    const total = boardSize * boardSize;
-    const openingRadius = 2; // 2 means a 5x5 area around first click will be mine-free
-  
-    // Get x,y of first click
-    const fx = firstIndex % boardSize;
-    const fy = Math.floor(firstIndex / boardSize);
-  
-    // Calculate forbidden cells inside openingRadius
-    const forbidden = new Set();
-    for (let y = fy - openingRadius; y <= fy + openingRadius; y++) {
-      for (let x = fx - openingRadius; x <= fx + openingRadius; x++) {
-        if (x >= 0 && x < boardSize && y >= 0 && y < boardSize) {
-          forbidden.add(y * boardSize + x);
-        }
+  const totalCells = boardSize * boardSize;
+  const safeRadius = boardSize >= 8 ? 1 : 0;
+  const safeCells = new Set();
+  const startX = firstIndex % boardSize;
+  const startY = Math.floor(firstIndex / boardSize);
+
+  for (let y = startY - safeRadius; y <= startY + safeRadius; y += 1) {
+    for (let x = startX - safeRadius; x <= startX + safeRadius; x += 1) {
+      if (x >= 0 && x < boardSize && y >= 0 && y < boardSize) {
+        safeCells.add(y * boardSize + x);
       }
     }
-  
-    // Generate list of valid positions outside forbidden zone
-    const candidates = [];
-    for (let i = 0; i < total; i++) {
-      if (!forbidden.has(i)) candidates.push(i);
-    }
-  
-    // Shuffle candidates array
-    for (let i = candidates.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
-    }
-  
-    // Pick first mineCount positions for mines
-    for (let i = 0; i < mineCount; i++) {
-      cells[candidates[i]].mine = true;
-    }
-  
-    calculateAdjacents();
   }
-  
+
+  const candidates = [];
+  for (let index = 0; index < totalCells; index += 1) {
+    if (!safeCells.has(index)) {
+      candidates.push(index);
+    }
+  }
+
+  if (candidates.length < mineCount) {
+    safeCells.clear();
+    safeCells.add(firstIndex);
+    candidates.length = 0;
+    for (let index = 0; index < totalCells; index += 1) {
+      if (!safeCells.has(index)) {
+        candidates.push(index);
+      }
+    }
+  }
+
+  shuffle(candidates);
+  for (let index = 0; index < mineCount; index += 1) {
+    cells[candidates[index]].mine = true;
+  }
+
+  calculateAdjacents();
+}
 
 function calculateAdjacents() {
-  for (let i = 0; i < cells.length; i++) {
-    const neighbors = getNeighbors(i);
-    cells[i].adjacent = neighbors.filter(n => cells[n].mine).length;
-  }
+  cells.forEach((cell, index) => {
+    if (cell.mine) {
+      cell.adjacent = 0;
+      return;
+    }
+
+    const neighbors = getNeighbors(index);
+    cell.adjacent = neighbors.filter((neighborIndex) => cells[neighborIndex].mine).length;
+  });
 }
 
 function getNeighbors(index) {
@@ -226,13 +288,16 @@ function getNeighbors(index) {
   const y = Math.floor(index / boardSize);
   const neighbors = [];
 
-  for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      if (dx === 0 && dy === 0) continue;
-      const nx = x + dx;
-      const ny = y + dy;
-      if (nx >= 0 && nx < boardSize && ny >= 0 && ny < boardSize) {
-        neighbors.push(ny * boardSize + nx);
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) {
+        continue;
+      }
+
+      const nextX = x + dx;
+      const nextY = y + dy;
+      if (nextX >= 0 && nextX < boardSize && nextY >= 0 && nextY < boardSize) {
+        neighbors.push(nextY * boardSize + nextX);
       }
     }
   }
@@ -240,400 +305,417 @@ function getNeighbors(index) {
   return neighbors;
 }
 
-function handleClick(index) {
-  if (!firstClickDone) {
-    placeMines(index);
-    firstClickDone = true;
-    timerInterval = setInterval(() => {
-        time++;
-        timerEl.textContent = time;
-      }, 1000);
-  }
+function revealSafeArea(startIndex) {
+  const queue = [startIndex];
 
-  const cell = cells[index];
-  if (cell.revealed || cell.flagged) return;
+  while (queue.length > 0) {
+    const index = queue.shift();
+    const cell = cells[index];
 
-  revealCell(index);
+    if (!cell || cell.revealed || cell.flagged) {
+      continue;
+    }
 
-  if (cell.mine) {
-    cell.element.textContent = '';  // clear any text like the emoji
-    const img = document.createElement('img');
-    img.src = 'images/mine-nbg-w.png';  // path to your image file
-    img.alt = 'bomb';
-    img.style.width = '20px';  // size it properly
-    img.style.height = '20px';
-    cell.element.appendChild(img);
-    cell.element.classList.add('mine');
-    showPopup("Game Over!");
-    revealAll();
-  } else {
-    checkWin();
+    revealSafeCell(cell, index);
+
+    if (cell.adjacent === 0) {
+      getNeighbors(index).forEach((neighborIndex) => {
+        const neighbor = cells[neighborIndex];
+        if (neighbor && !neighbor.revealed && !neighbor.flagged && !neighbor.mine) {
+          queue.push(neighborIndex);
+        }
+      });
+    }
   }
 }
 
-function revealCell(index) {
-  const cell = cells[index];
-  if (cell.revealed || cell.flagged) return;
-
+function revealSafeCell(cell, index) {
   cell.revealed = true;
   cell.element.classList.add('revealed');
+  cell.element.disabled = true;
+  cell.element.textContent = cell.adjacent > 0 ? String(cell.adjacent) : '';
+  cell.element.setAttribute(
+    'aria-label',
+    cell.adjacent > 0 ? `Revealed cell with ${cell.adjacent} adjacent mines` : 'Revealed empty cell'
+  );
+  cell.element.classList.remove('flagged');
+  updateCellAria(index);
+}
 
-  if (cell.adjacent > 0) {
-    cell.element.textContent = cell.adjacent;
-  } else {
-    getNeighbors(index).forEach(n => revealCell(n));
+function revealMine(cell, exploded = false) {
+  cell.revealed = true;
+  cell.element.classList.add('revealed', 'mine');
+  if (exploded) {
+    cell.element.classList.add('exploded');
   }
+  cell.element.disabled = true;
+  cell.element.innerHTML = '';
+
+  const img = document.createElement('img');
+  img.src = 'images/mine-nbg-w.png';
+  img.alt = 'Mine';
+  img.className = 'mine-img';
+  cell.element.appendChild(img);
+  cell.element.setAttribute('aria-label', exploded ? 'Exploded mine' : 'Revealed mine');
 }
 
 function toggleFlag(index) {
+  if (gameOver) {
+    return;
+  }
+
   const cell = cells[index];
-  if (cell.revealed) return;
+  if (!cell || cell.revealed) {
+    return;
+  }
 
   cell.flagged = !cell.flagged;
-  cell.element.textContent = '';
-
-  // Remove old image if it exists
-  const oldFlagImg = cell.element.querySelector('img.flag-img');
-  if (oldFlagImg) oldFlagImg.remove();
+  cell.element.classList.toggle('flagged', cell.flagged);
+  cell.element.innerHTML = '';
 
   if (cell.flagged) {
     const img = document.createElement('img');
     img.src = 'images/flag-nbg.png';
-    img.alt = 'flag';
-    img.classList.add('flag-img');
-    img.style.width = '20px';
-    img.style.height = '20px';
+    img.alt = 'Flag';
+    img.className = 'flag-img';
     cell.element.appendChild(img);
 
-    // Vibrate on flag placement (only if supported)
     if (navigator.vibrate) {
-      navigator.vibrate(100);
+      navigator.vibrate(50);
     }
   }
 
-  cell.element.classList.toggle('flagged', cell.flagged);
-
-  // update mine counter
-  const flaggedCount = cells.filter(c => c.flagged).length;
-  mineCounterEl.textContent = mineCount - flaggedCount;
-
+  const flaggedCount = cells.filter((candidate) => candidate.flagged).length;
+  mineCounterEl.textContent = String(Math.max(0, mineCount - flaggedCount));
+  updateCellAria(index);
   checkWin();
 }
 
-
-  function revealAll() {
-    for (let i = 0; i < cells.length; i++) {
-      const cell = cells[i];
-      if (!cell.revealed) {
-        cell.revealed = true;
-        cell.element.classList.add('revealed');
-        if (cell.mine) {
-          cell.element.textContent = '';  // clear any text like the emoji
-          const img = document.createElement('img');
-          img.src = 'images/mine-nbg-w.png';  // path to your image file
-          img.alt = 'bomb';
-          img.style.width = '20px';  // size it properly
-          img.style.height = '20px';
-          cell.element.appendChild(img);
-          cell.element.classList.add('mine');
-          
-        } else if (cell.adjacent > 0) {
-          cell.element.textContent = cell.adjacent;
-        }
-      }
+function revealAll() {
+  cells.forEach((cell, index) => {
+    if (cell.mine) {
+      revealMine(cell, cell.element.classList.contains('exploded'));
+      return;
     }
-  }
-  
 
-  function checkWin() {
-    const unrevealed = cells.filter(cell => !cell.revealed);
-    const onlyMinesLeft = unrevealed.every(cell => cell.mine);
-    if (onlyMinesLeft) {
-      clearInterval(timerInterval);
-  
-      for (let i = 0; i < cells.length; i++) {
-        const cell = cells[i];
-        if (!cell.revealed && cell.mine) {
-          cell.revealed = true;
-          cell.element.classList.add('revealed');
-          cell.element.textContent = '';  // clear any text like the emoji
-          const img = document.createElement('img');
-          img.src = 'images/mine-nbg-w.png';  // path to your image file
-          img.alt = 'bomb';
-          img.style.width = '20px';  // size it properly
-          img.style.height = '20px';
-          cell.element.appendChild(img);
-          cell.element.classList.add('mine');
-          
-        }
-      }
-  
-      setTimeout(() => {
-        revealAll();
-        updateBestTime();
-
-        /*
-        const playerName = prompt('You won! Enter your name for the leaderboard:') || 'Anonymous';
-        const difficulty = difficultySelect.value;
-  
-        // ✅ FIXED ARG ORDER
-        submitScoreOnline(playerName, difficulty, time);
-        */
-  
-        showPopup("You Win!");
-      }, 500);
+    if (!cell.revealed) {
+      revealSafeCell(cell, index);
     }
+  });
+}
+
+function checkWin() {
+  if (gameOver || !firstClickDone) {
+    return;
   }
-  
-  
-  
 
-init();
+  const revealedSafeCells = cells.filter((cell) => cell.revealed && !cell.mine).length;
+  const safeCellCount = cells.length - mineCount;
+  if (revealedSafeCells !== safeCellCount) {
+    return;
+  }
 
-const popup = document.getElementById('popup');
-const popupMessage = document.getElementById('popup-message');
-const popupRestart = document.getElementById('popup-restart');
-const popupReset = document.getElementById('popupResetBtn');
+  cells.forEach((cell) => {
+    if (cell.mine && !cell.flagged) {
+      cell.flagged = true;
+      cell.element.classList.add('flagged');
+      cell.element.innerHTML = '';
 
+      const img = document.createElement('img');
+      img.src = 'images/flag-nbg.png';
+      img.alt = 'Flag';
+      img.className = 'flag-img';
+      cell.element.appendChild(img);
+    }
+  });
+
+  mineCounterEl.textContent = '0';
+  updateBestTime();
+  endGame('You Win!');
+}
+
+function startTimer() {
+  stopTimer();
+  timerInterval = window.setInterval(() => {
+    time += 1;
+    timerEl.textContent = String(time);
+  }, 1000);
+}
+
+function stopTimer() {
+  if (timerInterval) {
+    window.clearInterval(timerInterval);
+    timerInterval = null;
+  }
+}
+
+function endGame(message) {
+  gameOver = true;
+  stopTimer();
+  showPopup(message);
+  updateCellAria();
+}
 
 function showPopup(message) {
   popupMessage.textContent = message;
   popup.classList.remove('hidden');
-  clearInterval(timerInterval);
 
-  // Animate popup
-  popup.classList.add('win-animate');
-
-  // Only trigger fancy effects if the message is a win
   if (message.toLowerCase().includes('win')) {
     startConfetti();
     board.classList.add('board-win-pulse');
-
-    // Sequential mine sparkle reveal
-    let delay = 0;
-    cells.forEach((cell) => {
-      if (cell.mine) {
-        setTimeout(() => {
-          cell.element.classList.add('sparkle');
-        }, delay);
-        delay += 50;
-      }
-    });
+  } else {
+    board.classList.remove('board-win-pulse');
   }
 }
-
-
 
 function hidePopup() {
   popup.classList.add('hidden');
   board.classList.remove('board-win-pulse');
+  popupMessage.textContent = '';
 }
 
-popupRestart.addEventListener('click', () => {
-  hidePopup();
-  resetGame();  // Your function to restart the game
-});
+function updateBestTime() {
+  const storageKey = getBestTimeKey();
+  const currentBest = readLocalStorage(storageKey);
+  const currentBestNumber = currentBest ? Number.parseInt(currentBest, 10) : null;
 
-popupReset.addEventListener('click', () => {
-    hidePopup();
-    resetGame();  // Your function to restart the game
-  });
-
-  let pressTimer;
-
-  cell.addEventListener("touchstart", (e) => {
-    pressTimer = setTimeout(() => {
-      toggleFlag(cell); // your flag function
-    }, 600);
-  });
-  
-  cell.addEventListener("touchend", (e) => {
-    clearTimeout(pressTimer);
-  });
-
-  board.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-  }, { passive: false });
-  
-  function launchConfetti() {
-    for (let i = 0; i < 300; i++) {
-      const confetto = document.createElement('div');
-      confetto.className = 'confetto';
-      confetto.style.left = `${Math.random() * 100}%`;
-      confetto.style.backgroundColor = `hsl(${Math.random() * 360}, 70%, 60%)`;
-      confetto.style.animationDelay = `${Math.random() * 1}s`;
-      document.body.appendChild(confetto);
-  
-      setTimeout(() => confetto.remove(), 9000);
-    }
+  if (!currentBestNumber || time < currentBestNumber) {
+    writeLocalStorage(storageKey, String(time));
+    bestTimeEl.textContent = String(time);
+    return;
   }
 
-  function startConfetti() {
-    const interval = setInterval(() => {
-      for (let i = 0; i < 7; i++) { // spawn 7 confetti every 100ms
-        const confetto = document.createElement('div');
-        confetto.className = 'confetto';
-        confetto.style.left = `${Math.random() * 100}%`;
-        confetto.style.backgroundColor = `hsl(${Math.random() * 360}, 70%, 60%)`;
-        confetto.style.animationDelay = `${Math.random() * 1}s`;
-        document.body.appendChild(confetto);
-  
-        setTimeout(() => confetto.remove(), 5000);
-      }
-    }, 100);
-    
-    // stop after 10 seconds or remove this if you want infinite
-    setTimeout(() => clearInterval(interval), 3000);
-  }
-  
-  
-  
+  bestTimeEl.textContent = String(currentBestNumber);
+}
 
-  document.addEventListener('DOMContentLoaded', () => {
-    const debugMenu = document.getElementById('debug-menu');
-    const board = document.getElementById('board');
-  
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'd') {
-        debugMenu.classList.toggle('hidden');
-      }
+function loadBestTime() {
+  const currentBest = readLocalStorage(getBestTimeKey());
+  bestTimeEl.textContent = currentBest || '--';
+}
+
+function getBestTimeKey() {
+  return `minesweeperBestTime_${difficultySelect.value}_${boardSize}x${mineCount}`;
+}
+
+async function submitScoreOnline(name, difficulty, scoreTime) {
+  if (window.location.protocol === 'https:' && LEADERBOARD_ENDPOINT.startsWith('http://')) {
+    console.warn('Skipping score submission because the configured leaderboard endpoint is not HTTPS.');
+    return;
+  }
+
+  try {
+    writeLocalStorage('lastPlayerName', name);
+    writeLocalStorage('lastTime', String(scoreTime));
+
+    const response = await fetch(LEADERBOARD_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, difficulty, time: scoreTime }),
     });
-  
-    window.debugWin = function() {
-      showWinPopup(); // your existing win popup function
-      board.classList.add('board-win-pulse');
-      confettiEffect();
-    };
-  
-    window.debugLose = function() {
-      alert("Loss triggered (stub). Replace with your actual loss logic.");
-    };
-  
-    window.resetGame = function() {
-      // your reset function code
-    };
-  
-    window.confettiEffect = confettiEffect; // if it's a function already defined
-  });
-  
 
+    if (!response.ok) {
+      throw new Error(`Score submission failed with status ${response.status}`);
+    }
+  } catch (error) {
+    console.warn('Unable to submit score online.', error);
+  }
+}
 
-  document.getElementById("setCustomBtn").addEventListener("click", () => {
-    const w = parseInt(document.getElementById("customWidth").value);
-    const h = parseInt(document.getElementById("customHeight").value);
-    const m = parseInt(document.getElementById("customMines").value);
-  
-    if (isNaN(w) || isNaN(h) || isNaN(m) || w < 5 || h < 5 || m <= 0 || m >= w * h) {
-      alert("Invalid custom values.");
+async function displayLeaderboard() {
+  if (!leaderboardEl || !leaderboardContainer) {
+    return;
+  }
+
+  if (window.location.protocol === 'https:' && LEADERBOARD_ENDPOINT.startsWith('http://')) {
+    leaderboardEl.textContent = 'Leaderboard unavailable on HTTPS.';
+    return;
+  }
+
+  const difficulty = difficultySelect.value;
+  leaderboardEl.textContent = 'Loading...';
+
+  try {
+    const response = await fetch(`${LEADERBOARD_ENDPOINT}?difficulty=${encodeURIComponent(difficulty)}`);
+    if (!response.ok) {
+      throw new Error(`Leaderboard request failed with status ${response.status}`);
+    }
+
+    const leaderboard = await response.json();
+    if (!Array.isArray(leaderboard) || leaderboard.length === 0) {
+      leaderboardEl.textContent = 'No scores yet!';
       return;
     }
-  
-    const customValue = `${w}x${h}x${m}`;
-    const select = document.getElementById("difficulty");
-  
-    // Add custom option dynamically
-    const option = document.createElement("option");
-    option.value = customValue;
-    option.textContent = `${w}x${h} (${m} mines)`;
-    option.selected = true;
-    select.appendChild(option);
-  
-    handleDifficulty(customValue);
-  });
-  
-  document.getElementById("difficulty").addEventListener("change", (e) => {
-    handleDifficulty(e.target.value);
-  });
-  
-  function handleDifficulty(value) {
-    const [w, h, m] = value.split("x").map(Number);
-    if (isNaN(w) || isNaN(h) || isNaN(m)) return alert("Invalid difficulty value.");
-    initGame(w, h, m); // Call your game init function
-  }
-  
 
-  async function displayLeaderboard() {
-    const difficulty = difficultySelect.value;
-    const leaderboardEl = document.getElementById('leaderboard');
-    const lastPlayerName = localStorage.getItem('lastPlayerName');
-    const lastTime = parseInt(localStorage.getItem('lastTime'), 10);
-  
-    leaderboardEl.innerHTML = 'Loading...';
-  
-    try {
-      const response = await fetch(`http://mpmc.ddns.net:3000/scores?difficulty=${difficulty}`);
-      if (!response.ok) throw new Error('Failed to fetch leaderboard');
-      const leaderboard = await response.json();
-  
-      if (leaderboard.length === 0) {
-        leaderboardEl.textContent = 'No scores yet!';
-        return;
-      }
-  
-      // Sort by best time
-      leaderboard.sort((a, b) => a.time - b.time);
-  
-      leaderboardEl.innerHTML = '';
-  
-      // Show top 5
-      leaderboard.slice(0, 5).forEach(({ name, time }, index) => {
-        const entry = document.createElement('div');
-        entry.textContent = `${index + 1}. ${name} - ${time}s`;
-        leaderboardEl.appendChild(entry);
+    leaderboardEl.innerHTML = '';
+    leaderboard
+      .slice()
+      .sort((left, right) => left.time - right.time)
+      .slice(0, 5)
+      .forEach((entry, index) => {
+        const row = document.createElement('div');
+        row.textContent = `${index + 1}. ${entry.name} - ${entry.time}s`;
+        leaderboardEl.appendChild(row);
       });
-  
-      // Find current user's position if available
-      if (lastPlayerName && !isNaN(lastTime)) {
-        const playerIndex = leaderboard.findIndex(
-          entry => entry.name === lastPlayerName && entry.time === lastTime
-        );
-  
-        if (playerIndex !== -1 && playerIndex >= 5) {
-          const youEntry = document.createElement('div');
-          youEntry.textContent = `${playerIndex + 1}. You - ${lastTime}s`;
-          youEntry.style.marginTop = '0.5em';
-          leaderboardEl.appendChild(youEntry);
-        }
-      }
-  
-    } catch (error) {
-      leaderboardEl.textContent = 'Error loading leaderboard.';
-      console.error(error);
-    }
+  } catch (error) {
+    leaderboardEl.textContent = 'Leaderboard unavailable.';
+    console.warn('Unable to load leaderboard.', error);
   }
-  
-  
-  function positionLeaderboard() {
-    const board = document.getElementById('boardContainer'); // your board container
-    const leaderboard = document.getElementById('leaderboardContainer');
-  
-    const boardRect = board.getBoundingClientRect();
-  
-    // Distance from bottom of viewport to bottom of board
-    const distanceFromBottom = window.innerHeight - (boardRect.bottom);
-  
-    // Let's say you want leaderboard 20px above the board's bottom
-    const offset = 20;
-  
-    if(window.innerWidth <= 720) {
-      // Small screen: fix leaderboard at bottom with offset from board bottom
-      leaderboard.style.position = 'fixed';
-      leaderboard.style.bottom = (distanceFromBottom + offset) + 'px';
-      leaderboard.style.left = '0';
-      leaderboard.style.width = '100%';
-      leaderboard.style.maxWidth = 'none';
-      // Add other styles you want here
-    } else {
-      // Large screen: reset to left fixed
-      leaderboard.style.position = 'fixed';
-      leaderboard.style.top = '80px';  // or whatever you want
-      leaderboard.style.left = '10px';
-      leaderboard.style.width = '220px'; // or your original width
-      leaderboard.style.bottom = 'auto';
-    }
+}
+
+function startConfetti() {
+  for (let index = 0; index < 80; index += 1) {
+    const confetto = document.createElement('div');
+    confetto.className = 'confetto';
+    confetto.style.left = `${Math.random() * 100}%`;
+    confetto.style.backgroundColor = `hsl(${Math.random() * 360}, 70%, 60%)`;
+    confetto.style.animationDelay = `${Math.random() * 400}ms`;
+    document.body.appendChild(confetto);
+    window.setTimeout(() => confetto.remove(), 4500);
   }
-  
-  // Run initially and on resize
-  window.addEventListener('resize', positionLeaderboard);
-  window.addEventListener('load', positionLeaderboard);
-  
+}
+
+function updateCellAria(index) {
+  if (typeof index === 'number') {
+    updateSingleCellAria(index);
+    return;
+  }
+
+  cells.forEach((_, cellIndex) => updateSingleCellAria(cellIndex));
+}
+
+function updateSingleCellAria(index) {
+  const cell = cells[index];
+  if (!cell) {
+    return;
+  }
+
+  if (gameOver && cell.mine) {
+    cell.element.setAttribute('aria-label', cell.element.classList.contains('exploded') ? 'Exploded mine' : 'Mine');
+    return;
+  }
+
+  if (cell.revealed) {
+    cell.element.setAttribute(
+      'aria-label',
+      cell.adjacent > 0 ? `Revealed cell with ${cell.adjacent} adjacent mines` : 'Revealed empty cell'
+    );
+    return;
+  }
+
+  if (cell.flagged) {
+    cell.element.setAttribute('aria-label', 'Flagged hidden cell');
+    return;
+  }
+
+  cell.element.setAttribute('aria-label', `Hidden cell ${index + 1}`);
+}
+
+function shuffle(items) {
+  for (let index = items.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [items[index], items[swapIndex]] = [items[swapIndex], items[index]];
+  }
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function readLocalStorage(key) {
+  try {
+    return window.localStorage.getItem(key);
+  } catch (error) {
+    console.warn('Local storage read failed.', error);
+    return null;
+  }
+}
+
+function writeLocalStorage(key, value) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch (error) {
+    console.warn('Local storage write failed.', error);
+  }
+}
+
+function debugWin() {
+  if (gameOver) {
+    init();
+  }
+
+  if (!firstClickDone) {
+    handleReveal(0);
+  }
+
+  cells.forEach((cell, index) => {
+    if (!cell.mine) {
+      revealSafeArea(index);
+    }
+  });
+  checkWin();
+}
+
+function debugLose() {
+  if (gameOver) {
+    init();
+  }
+
+  if (!firstClickDone) {
+    placeMines(0);
+    firstClickDone = true;
+  }
+
+  const mineCell = cells.find((cell) => cell.mine);
+  if (mineCell) {
+    revealMine(mineCell, true);
+    revealAll();
+    endGame('Game Over!');
+  }
+}
+
+function renderGameToText() {
+  const payload = {
+    difficulty: difficultySelect.value,
+    boardSize,
+    mineCount,
+    minesLeft: Number.parseInt(mineCounterEl.textContent, 10),
+    time,
+    firstClickDone,
+    gameOver,
+    popupVisible: !popup.classList.contains('hidden'),
+    popupMessage: popup.classList.contains('hidden') ? '' : popupMessage.textContent,
+    coordinateSystem: 'index is row-major from top-left; x grows right, y grows down',
+    cells: cells.map((cell, index) => ({
+      index,
+      x: index % boardSize,
+      y: Math.floor(index / boardSize),
+      revealed: cell.revealed,
+      flagged: cell.flagged,
+      adjacent: cell.revealed ? cell.adjacent : null,
+      mineVisible: gameOver && cell.mine,
+    })),
+  };
+
+  return JSON.stringify(payload);
+}
+
+window.debugWin = debugWin;
+window.debugLose = debugLose;
+window.resetGame = init;
+window.confettiEffect = startConfetti;
+window.render_game_to_text = renderGameToText;
+window.advanceTime = (ms) => {
+  if (!firstClickDone || gameOver || ms <= 0) {
+    return;
+  }
+
+  const seconds = Math.floor(ms / 1000);
+  if (seconds <= 0) {
+    return;
+  }
+
+  time += seconds;
+  timerEl.textContent = String(time);
+};
+
+void submitScoreOnline;
